@@ -1,0 +1,126 @@
+apply plugin: 'com.android.application'
+
+//dependencies closure used by android-gradle plugin
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:22.2.0'
+}
+
+//2.a)
+// This is related to 2.b) and 2.c) in the release signingConfigs closure
+// add a global property to the application object.
+// This will be loaded with properties to be for signing a release build
+
+ext.signingProps = new Properties()
+
+
+//main closure interpreted by android-gradle plugin
+
+android {
+    compileSdkVersion 22
+    buildToolsVersion "22.0.1"
+
+    defaultConfig {
+        applicationId "org.c4q.gradlelesson"
+        minSdkVersion 16
+        targetSdkVersion 22
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+
+        // check other options at https://www.timroes.de/2013/09/22/handling-signing-configs-with-gradle/
+
+        // option 1) hard-code the values
+
+        //release {
+        // option 1) hard-code the values
+        //    storeFile file("../.keys/c4q_2.keystore")
+        //    storePassword("****")
+        //    keyAlias("gradle_lesson")
+        //    keyPassword("****")
+        //}
+
+        release {
+
+            // option 2: read properties from a file.
+            // This file's path is defined in build.gradle, as a property "projectSigningPropertiesFile"
+
+            //2.b) call the method to load the signing properties into the project variable created at the top of the script
+            loadSigningProps()
+
+            //2.c) use the signing properties from the project properties variable loaded above
+            storeFile file(signingProps['RELEASE_STORE_FILE'])
+            storePassword(signingProps['RELEASE_STORE_PASSWORD'])
+            keyAlias(signingProps['RELEASE_KEY_ALIAS'])
+            keyPassword(signingProps['RELEASE_KEY_PASSWORD'])
+        }
+
+        buildTypes {
+            release {
+                minifyEnabled true
+                proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                signingConfig signingConfigs.release
+
+            }
+
+            debug {
+                minifyEnabled false
+                proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            }
+        }
+
+        productFlavors {
+            demo {
+                applicationId "org.c4q.gradlelessonDemo"
+                versionCode 1  // to be incremented for each Play Store submission
+                versionName "1.0.1.free" //<majorRelease>.<minor>.<bugFix>.free
+            }
+            full {
+                applicationId "org.c4q.gradlelessonFull"
+                versionCode 1  // to be incremented for each Play Store submission
+                versionName "1.0.1.full" //<majorRelease>.<minor>.<bugFix>.full
+            }
+        }
+    }
+}
+
+def loadSigningProps() {
+    def signingPropertyName = "projectSigningPropertiesFile"
+    def propFileName = ""
+
+    if (project.hasProperty(signingPropertyName)) {
+        println "propFile=" + project.property(signingPropertyName)
+        println "projectDir" + projectDir.absolutePath;
+        println "rootDir" + rootDir.absolutePath;
+    }
+
+    //if the property is defined, then we will load the properties from this file.
+    // otherwise, we will use the included keystore and key, but prompt for passwords
+
+    if (project.hasProperty(signingPropertyName)) {
+        propFileName = projectDir.getAbsolutePath() + '/' + project.property(signingPropertyName)
+        println "propfileName=" + propFileName
+
+        if (new File(propFileName).exists()) {
+            println("prop file exists: " + new File(propFileName).absolutePath)
+            signingProps.load(new FileInputStream(propFileName))
+        }
+    } else {
+        println "signingPropertyName not defined in properties file. Using the pre-packaged keyStore in ../.keys hidden folder"
+        signingProps['RELEASE_STORE_FILE'] = '../.keys/c4q_2.keystore'
+        signingProps['RELEASE_KEY_ALIAS'] = "gradle_lesson"
+        signingProps['RELEASE_KEY_PASSWORD'] = System.console().readLine("\nKeystore password: ")
+        signingProps['RELEASE_STORE_PASSWORD'] = System.console().readLine("\nkey password: ")
+    }
+
+    // below println WILL EXPOSE THE PASSWORDS, SO they have been COMMENT OUT
+    // Activate temporarily to assist in learning/debugging
+
+    // println "keystore=" + signingProps['RELEASE_STORE_FILE']
+    // println signingProps['RELEASE_KEY_ALIAS']
+    // println signingProps['RELEASE_KEY_PASSWORD']
+    // println signingProps['RELEASE_KEY_PASSWORD']
+}
